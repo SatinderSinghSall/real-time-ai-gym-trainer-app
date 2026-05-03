@@ -9,12 +9,12 @@ def render_login_wall():
     st.markdown("### Welcome, please enter a unique username.")
 
     with st.form("login_form", clear_on_submit=False):
-        username = st.text_input("Name (Unique):", placeholder="Please Enter a Unique Name... e.g. Satinder Singh Sall")
+        username = st.text_input("Name (Unique Name):", placeholder="Please Enter a Unique Name... e.g. Satinder Singh Sall")
         submit_button = st.form_submit_button("Start Session!", width="stretch")
 
     if submit_button:
         if not username:
-            st.error("Name can not be empty. Try again!")
+            st.error("Name can not be empty. Try again!", icon="❌")
             return False
 
         st.session_state["username"] = username
