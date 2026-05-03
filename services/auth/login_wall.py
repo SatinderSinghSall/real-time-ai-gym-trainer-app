@@ -1,3 +1,4 @@
+import time
 import streamlit as st
 
 
@@ -15,8 +16,13 @@ def render_login_wall():
     if submit_button:
         if not username:
             st.error("Name can not be empty. Try again!", icon="❌")
+            st.toast("Error: Fill in all the fields.", icon="😍")
+            time.sleep(3)
+
             return False
 
+        st.toast("Logged-in Successful!", icon="😍")
+        time.sleep(3)
         st.session_state["username"] = username
         st.session_state["user_id"] = '001'
         st.rerun()
