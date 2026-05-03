@@ -16,7 +16,7 @@ def render_login_wall():
     if submit_button:
         if not username:
             st.error("Name can not be empty. Try again!", icon="❌")
-            st.toast("Error: Fill in all the fields.", icon="😍")
+            st.toast("Error: Fill in all the fields.", icon="❌")
             time.sleep(3)
 
             return False
