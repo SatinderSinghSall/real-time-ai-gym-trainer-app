@@ -1,7 +1,8 @@
 import os
 import time
-import streamlit as st
 import pandas as pd
+from groq import Groq
+import streamlit as st
 
 from streamlit_webrtc import webrtc_streamer, WebRtcMode
 
@@ -13,6 +14,9 @@ from services.persistence.exercise_repository import init_db, get_user_exercises
 from services.ml.model_loader import ensure_model
 from services.vision.exercise_video_processor import VideoProcessorClass
 from services.tracking.metrics import sync_metrics_update
+from services.coaching.llm import LLMCoach
+from services.coaching.tts import TextToSpeech
+from services.coaching.voice_pipeline import VoicePipeline, autoplay_audio
 
 
 def main():
@@ -35,7 +39,23 @@ def main():
         return
 
     initial_session_defaults()
-    
+
+    if "voice_pipeline" not in st.session_state:
+        try:
+            api_key = os.environ.get("GROQ_API_KEY", "")
+
+            if not api_key and hasattr(st, "secrets") and "GROQ_API_KEY" in st.secrets:
+                api_key = st.secrets["GROQ_API_KEY"]
+            
+            groq_client = Groq(api_key=api_key)
+            llm_coach = LLMCoach(groq_client)
+            tts = TextToSpeech()
+            st.session_state.voice_pipeline = VoicePipeline(llm_coach, tts)
+        except Exception as e:
+            st.session_state.voice_pipeline = None
+
+    workout_started = st.session_state.get("workout_started", False)
+
     # Handle one-time toast messages
     if st.session_state.get("show_start_toast"):
         st.toast("Workout Started!", icon="💪🏻")
@@ -76,6 +96,20 @@ def main():
                     st.session_state.last_notified_sets_completed = 0
                     st.session_state.last_notified_workout_complete = False
                     st.session_state["show_start_toast"] = True
+
+                    if st.session_state.voice_pipeline:
+                        result = st.session_state.voice_pipeline.process_event(
+                            event="workout_started",
+                            exercise=plan_exercise,
+                            metrics={}
+                        )
+
+                        if result:
+                            st.session_state.audio_to_play, st.session_state.coach_feedback = result
+
+                    st.session_state.last_notified_sets_completed = 0
+                    st.session_state.last_notified_workout_complete = False
+
                     st.rerun()
             else:
                 st.write("Workout is in progress... 💪")
@@ -90,6 +124,14 @@ def main():
                 if end_session_button:
                     st.session_state["workout_started"] = False
                     st.session_state["show_stop_toast"] = True
+                    if st.session_state.voice_pipeline:
+                        result = st.session_state.voice_pipeline.process_event(
+                            event="workout_completed",
+                            exercise=exercise,
+                            metrics={}
+                        )
+                        if result:
+                            st.session_state.audio_to_play, st.session_state.coach_feedback = result
                     st.rerun()
 
         if workout_started:
@@ -140,6 +182,13 @@ def main():
 
     st.title("AI Real-Time GYM Coach")
     st.markdown("#### Real-time pose detection with proactive AI voice coaching.")
+
+    if st.session_state.get("audio_to_play"):
+        autoplay_audio(st.session_state.audio_to_play)
+
+    if st.session_state.get("coach_feedback"):
+        st.markdown("")
+        st.success(f"🤖 **Coach:** {st.session_state.coach_feedback}")
 
     if not workout_started:
         st.markdown(
@@ -195,7 +244,7 @@ def main():
                 "Exercise": row["exercise_name"],
                 "Reps": row["reps"],
                 "Sets": row["sets"],
-                "Time (sec)": row["duration"],   # ✅ FIXED
+                "Time (sec)": row["duration"],
                 "Date": row["created_at"]
             }
             for row in history_rows
