@@ -16,3 +16,6 @@ data.db
 
 # Logs
 *.log
+
+# Models:
+ml_models/pose_landmarker_full.task
