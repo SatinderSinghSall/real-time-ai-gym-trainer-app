@@ -19,3 +19,5 @@ data.db
 
 # Models:
 ml_models/pose_landmarker_full.task
+
+.env
