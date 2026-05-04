@@ -1,6 +1,7 @@
 import os
 import time
 import streamlit as st
+import pandas as pd
 
 from streamlit_webrtc import webrtc_streamer, WebRtcMode
 
@@ -8,7 +9,7 @@ from services.auth.login_wall import render_login_wall
 from services.state.session_defaults import initial_session_defaults
 from services.config.workout_config import EXERCISE_OPTIONS
 from services.ui.style_loader import load_css, inject_local_font, inject_webrtc_styles
-from services.persistence.exercise_repository import init_db
+from services.persistence.exercise_repository import init_db, get_user_exercises
 from services.ml.model_loader import ensure_model
 from services.vision.exercise_video_processor import VideoProcessorClass
 from services.tracking.metrics import sync_metrics_update
@@ -79,10 +80,10 @@ def main():
             else:
                 st.write("Workout is in progress... 💪")
 
-                exercise = st.session_state.get("plan_exercise")
-                sets = st.session_state.get("plan_sets")
-                reps = st.session_state.get("plan_reps")
-
+                exercise = st.session_state.get("exercise_type")
+                sets = st.session_state.get("target_sets")
+                reps = st.session_state.get("reps_per_set")
+ 
                 st.info(f"**{exercise} -- {sets} sets / {reps} reps**", icon=":material/info:")
 
                 end_session_button = st.button("End Workout", key="end_session_button", icon=":material/stop_circle:", width="stretch")
@@ -184,6 +185,37 @@ def main():
     st.markdown("")
     st.markdown("#### Workout History.")
 
+    user_id = st.session_state.get("user_id", 0)
+
+    if isinstance(user_id, int):
+        history_rows = get_user_exercises(user_id)
+
+        df_arr = [
+            {
+                "Exercise": row["exercise_name"],
+                "Reps": row["reps"],
+                "Sets": row["sets"],
+                "Time (sec)": row["duration"],   # ✅ FIXED
+                "Date": row["created_at"]
+            }
+            for row in history_rows
+        ]
+
+        df = pd.DataFrame(df_arr)
+
+        if not df.empty:
+            df["Date"] = pd.to_datetime(df["Date"]).dt.date
+            agg_df = df.groupby(["Exercise", "Date"]).agg(
+                {
+                    'Reps': 'sum',
+                    "Sets": 'sum',
+                    "Time (sec)": 'sum'
+                }
+            ).reset_index()
+            agg_df.index += 1
+            st.table(agg_df, border="horizontal")
+        else:
+            st.info("No workout history found.")
 
 if __name__ == "__main__":
     main()
