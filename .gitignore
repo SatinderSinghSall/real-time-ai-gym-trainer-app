@@ -12,6 +12,7 @@ Thumbs.db
 
 # Database
 Main App/data.db
+data.db
 
 # Logs
 *.log

@@ -1,5 +1,6 @@
-import time
 import streamlit as st
+
+from services.persistence.exercise_repository import get_or_create_user
 
 
 def render_login_wall():
@@ -17,14 +18,15 @@ def render_login_wall():
         if not username:
             st.error("Name can not be empty. Try again!", icon="❌")
             st.toast("Error: Fill in all the fields.", icon="❌")
-            time.sleep(3)
 
             return False
 
+        user = get_or_create_user(username=username)
+
+        st.session_state["user_id"] = user["id"]
+        st.session_state["username"] = user["username"]
         st.toast("Logged-in Successful!", icon="😍")
-        time.sleep(3)
-        st.session_state["username"] = username
-        st.session_state["user_id"] = '001'
+
         st.rerun()
 
     return False
